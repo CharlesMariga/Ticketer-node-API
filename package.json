@@ -8,7 +8,7 @@
     "clean": "rm -rf dist",
     "copy-files": "cp -R src/public dist",
     "build": "npm run clean && tsc && npm run copy-files",
-    "dev": "nodemon --watch './**/*.ts' --exec 'ts-node' src/server.ts"
+    "dev": "nodemon --watch './**/*.ts' --exec 'ts-node' --files src/server.ts"
   },
   "repository": {
     "type": "git",

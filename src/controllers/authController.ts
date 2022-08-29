@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import User from '../models/userModel';
 import IUser from '../utils/interfaces/user.interface';
-import jwt from 'jsonwebtoken';
+import jwt, { JwtPayload } from 'jsonwebtoken';
 import catchAsync from '../utils/catchAsync';
 import AppError from '../utils/appError';
 
@@ -9,6 +9,19 @@ const signToken = (id: string) =>
   jwt.sign({ id }, process.env.JWT_SECRET as jwt.Secret, {
     expiresIn: process.env.JWT_EXPIRES_IN,
   });
+
+const promisifyVerify = (
+  token: string,
+  key: string,
+  options = {}
+): JwtPayload => {
+  return new Promise((resolve, reject) => {
+    jwt.verify(token, key, options, (error, payload) => {
+      if (error) return reject(error);
+      resolve(payload);
+    });
+  });
+};
 
 const createSendToken = (
   user: IUser,
@@ -40,7 +53,7 @@ const createSendToken = (
 export default {
   signup: catchAsync(
     async (
-      req: Request<Record<string, never>, Record<string, never>, IUser>,
+      req: Request<Record<string, never>, Record<string, never>, IUser> & IUser,
       res: Response,
       next: NextFunction
     ) => {
@@ -81,4 +94,111 @@ export default {
       createSendToken(user, 200, req, res);
     }
   ),
+
+  protect: catchAsync(
+    async (req: Request, res: Response, next: NextFunction) => {
+      let token = '';
+      // 1) Getting the token and check if it exists
+      if (
+        req.headers.authorization &&
+        req.headers.authorization.startsWith('Bearer')
+      ) {
+        token = req.headers.authorization.split(' ')[1];
+      } else if (req.cookies.jwt) {
+        token = req.cookies.jwt;
+      }
+
+      if (!token)
+        return next(
+          new AppError('You are not logged in! Please login to get access', 401)
+        );
+
+      // 2) Verify token
+      const decoded: JwtPayload = await promisifyVerify(
+        token,
+        process.env.JWT_SECRET as string
+      );
+
+      // 3) Check if user still exists
+      const currentUser = await User.findById(decoded.id);
+      if (!currentUser)
+        return next(
+          new AppError('The user belonging to the token no longer exists', 401)
+        );
+
+      // 4) Check if user changed password after the jwt token was used
+      if (!decoded.iat)
+        return next(
+          new AppError('You are not logged in! Please login to get access', 401)
+        );
+      if (currentUser.changedPasswordAfter(decoded.iat))
+        return next(
+          new AppError(
+            'User recently changed password! Please log in again',
+            401
+          )
+        );
+
+      // 5) Grant  access to protected route
+      req.user = currentUser;
+      res.locals.user = currentUser;
+      next();
+    }
+  ),
+
+  impersonate: catchAsync(
+    async (
+      req: Request<
+        Record<string, never>,
+        Record<string, never>,
+        { email: string }
+      >,
+      res: Response,
+      next: NextFunction
+    ) => {
+      console.log(req.body.email);
+      // 1) Check whether a user with that email exists
+      const user = await User.findOne({ email: req.body.email });
+      if (!user)
+        return next(new AppError("User with that email doesn't exists", 404));
+
+      // 2) Send to the user a new token and the impersonated user
+      const token = jwt.sign(
+        { id: req.user.id, impersonated: user.id },
+        process.env.JWT_SECRET as jwt.Secret,
+        {
+          expiresIn: process.env.JWT_EXPIRES_IN,
+        }
+      );
+
+      res.cookie('jwt', token, {
+        expires: new Date(
+          Date.now() +
+            Number(process.env.JWT_COOKIE_EXPIRES_IN) * 24 * 60 * 60 * 1000
+        ),
+        httpOnly: true,
+        secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
+      });
+      user.password = undefined;
+
+      res.status(200).json({
+        status: 'success',
+        token,
+        data: {
+          user,
+        },
+      });
+    }
+  ),
+
+  restrictTo:
+    (...roles: string[]) =>
+    async (req: Request, res: Response, next: NextFunction) => {
+      if (!roles.includes(req.user.role))
+        return next(
+          new AppError('You do not have permission to perform this action', 403)
+        );
+
+      next();
+    },
 };
