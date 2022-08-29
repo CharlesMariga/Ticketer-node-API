@@ -1,9 +1,16 @@
 import express, { Application, json } from 'express';
 import morgan from 'morgan';
+import cors from 'cors';
+
 import userRouter from './routes/userRouter';
 import errorController from './controllers/errorController';
 
 const app: Application = express();
+
+// MIDDLEWARES
+// -- Implement CORS
+app.use(cors({ credentials: true }));
+app.options('*', cors);
 
 // -- Development requests console logs
 if (process.env.NODE_ENV === 'development') {
