@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import authController from '../controllers/authController';
+import userController from '../controllers/userController';
 
 const router = Router();
 
@@ -11,5 +12,12 @@ router.post(
   authController.restrictTo('admin'),
   authController.impersonate
 );
+router.post(
+  '/endImpersonation',
+  authController.protect,
+  authController.endImpersonation
+);
+
+router.route('/:id').patch(authController.protect, userController.updateUser);
 
 export default router;

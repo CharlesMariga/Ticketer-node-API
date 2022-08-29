@@ -104,7 +104,7 @@ export default {
         req.headers.authorization.startsWith('Bearer')
       ) {
         token = req.headers.authorization.split(' ')[1];
-      } else if (req.cookies.jwt) {
+      } else if (req.cookies?.jwt) {
         token = req.cookies.jwt;
       }
 
@@ -139,7 +139,14 @@ export default {
           )
         );
 
+      // 5) Check if impersonated use exists
       // 5) Grant  access to protected route
+      if (decoded.impersonater) {
+        const impersonatorUser = await User.findById(decoded.impersonater);
+        if (!impersonatorUser)
+          return next(new AppError("The impersonator doesn't exists", 404));
+        req.impersonater = impersonatorUser;
+      }
       req.user = currentUser;
       res.locals.user = currentUser;
       next();
@@ -156,7 +163,6 @@ export default {
       res: Response,
       next: NextFunction
     ) => {
-      console.log(req.body.email);
       // 1) Check whether a user with that email exists
       const user = await User.findOne({ email: req.body.email });
       if (!user)
@@ -164,7 +170,7 @@ export default {
 
       // 2) Send to the user a new token and the impersonated user
       const token = jwt.sign(
-        { id: req.user.id, impersonated: user.id },
+        { id: user.id, impersonater: req.user.id },
         process.env.JWT_SECRET as jwt.Secret,
         {
           expiresIn: process.env.JWT_EXPIRES_IN,
@@ -184,6 +190,24 @@ export default {
       res.status(200).json({
         status: 'success',
         token,
+        data: {
+          user,
+        },
+      });
+    }
+  ),
+
+  endImpersonation: catchAsync(
+    async (req: Request, res: Response, next: NextFunction) => {
+      // 1) Get the impersonator
+      const user = await User.findById(req.impersonater.id);
+
+      if (!user)
+        return next(new AppError("The impersonator doesn't exists", 404));
+
+      // 2) Retun the impersonator
+      res.status(200).json({
+        status: 'success',
         data: {
           user,
         },

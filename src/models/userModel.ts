@@ -17,6 +17,7 @@ const userSchema = new Schema<IUser, Model<IUser>>({
     unique: true,
     lowercase: true,
     validate: [validator.isEmail, 'Please provide a valid email'],
+    trim: true,
   },
   role: {
     type: String,

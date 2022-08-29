@@ -9,6 +9,12 @@ import {
 import { ITicket } from '../utils/interfaces/ticket.interface';
 
 const ticketSchema = new Schema<ITicket, Model<ITicket>>({
+  ticketNumber: {
+    type: String,
+    unique: true,
+    default: () => `T-${Math.round(Math.random() * 100000)}`,
+    required: [true, 'A ticket must have a ticket number'],
+  },
   createdAt: {
     type: Date,
     default: Date.now(),
@@ -16,19 +22,24 @@ const ticketSchema = new Schema<ITicket, Model<ITicket>>({
   createdBy: {
     type: Types.ObjectId,
     ref: 'User',
-    required: [true, 'A ticket must have a createdBy field'],
   },
-  onBehalfOf: {
+  user: {
     type: Types.ObjectId,
     ref: 'User',
-    required: false,
+    required: [true, 'A ticket must belong to a user'],
   },
 });
+
+ticketSchema.index({ ticketNumber: 1 });
 
 ticketSchema.pre<Query<ITicket[], ITicket>>(
   /^find/,
   function (next: CallbackWithoutResultAndOptionalError) {
-    this.populate('createdBy').populate('onBehalfOf');
+    this.populate({
+      path: 'createdBy',
+      select: 'id name',
+    }).populate({ path: 'user', select: 'id name' });
+    next();
   }
 );
 

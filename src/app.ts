@@ -3,6 +3,7 @@ import morgan from 'morgan';
 import cors from 'cors';
 
 import userRouter from './routes/userRouter';
+import ticketRouter from './routes/ticketRouter';
 import errorController from './controllers/errorController';
 
 const app: Application = express();
@@ -22,6 +23,7 @@ if (process.env.NODE_ENV === 'development') {
 app.use(json({ limit: '10kb' }));
 
 app.use('/api/v1/users', userRouter);
+app.use('/api/v1/tickets', ticketRouter);
 
 app.use(errorController);
 
