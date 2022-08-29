@@ -30,7 +30,7 @@ export default {
 
       res.status(200).json({
         status: 'success',
-        lenth: tickets.length,
+        length: tickets.length,
         data: {
           tickets,
         },
