@@ -6,8 +6,7 @@
   "scripts": {
     "start": "npx tsc && node build/server.js",
     "clean": "rm -rf dist",
-    "copy-files": "cp -R src/public dist",
-    "build": "npm run clean && tsc && npm run copy-files",
+    "build": "npm run clean && tsc",
     "dev": "nodemon --watch './**/*.ts' --exec 'ts-node' --files src/server.ts"
   },
   "repository": {
