@@ -206,12 +206,7 @@ export default {
         return next(new AppError("The impersonator doesn't exists", 404));
 
       // 2) Retun the impersonator
-      res.status(200).json({
-        status: 'success',
-        data: {
-          user,
-        },
-      });
+      createSendToken(user, 200, req, res);
     }
   ),
 
